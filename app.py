@@ -4,7 +4,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def hello():
-    return "Hello from my Free Tier Pipeline! Version 1.0"
+    return "This update was deployed automatically by my awesome CI/CD pipeline! Version 2.0"
 
 if __name__ == '__main__':
     # Run on port 80 to be accessible from the browser
