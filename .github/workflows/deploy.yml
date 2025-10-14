@@ -66,6 +66,9 @@ jobs:
         key: ${{ secrets.EC2_SSH_KEY }}
         # The script to execute on the EC2 server
         script: |
+          # Use the attached IAM Role to log Docker into Amazon ECR
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | sudo docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+          
           # Pull the latest image from ECR
           sudo docker pull ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
           
