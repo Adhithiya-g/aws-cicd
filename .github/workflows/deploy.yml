@@ -1,0 +1,77 @@
+name: Build and Deploy to EC2
+
+# Trigger this workflow on every push to the main branch
+on:
+  push:
+    branches: [ "main" ]
+
+# Environment variables available to all jobs
+env:
+  AWS_REGION: us-east-1             # IMPORTANT: Change to your EC2/ECR region
+  ECR_REPOSITORY: my-app          # IMPORTANT: Change to your ECR repository name
+  # Use the commit SHA as a unique tag for the Docker image
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  # JOB 1: Build the Docker image and push it to Amazon ECR
+  build:
+    name: Build & Push Image
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build, tag, and push image to Amazon ECR
+      run: |
+        # The ECR registry URI is an output of the login step
+        docker build -t ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }} .
+        docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+
+  # JOB 2: Deploy the new Docker image to the EC2 instance
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    # This job depends on the 'build' job finishing successfully
+    needs: build
+
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR for EC2 script
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Deploy to EC2 via SSH
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        # The script to execute on the EC2 server
+        script: |
+          # Pull the latest image from ECR
+          sudo docker pull ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+          
+          # Stop and remove the old container if it exists
+          sudo docker stop my-app-container || true
+          sudo docker rm my-app-container || true
+          
+          # Run the new container
+          sudo docker run -d -p 80:80 --name my-app-container ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
