@@ -54,7 +54,7 @@ HTML_TEMPLATE = """
 </head>
 <body>
     <div class="container">
-        <h1>🚀 Deployment Successful! Version 1</h1>
+        <h1>🚀 Deployment Successful! Version 2</h1>
         <p>This application was automatically deployed by the CI/CD pipeline.</p>
         <p><strong>Repository:</strong> {{ repo_name }}</p>
         <p><strong>Commit SHA:</strong> <code>{{ commit_sha }}</code></p>
