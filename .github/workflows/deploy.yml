@@ -70,11 +70,15 @@ jobs:
           aws ecr get-login-password --region ${{ env.AWS_REGION }} | sudo docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
           
           # Pull the latest image from ECR
-          sudo docker pull ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+          sudo docker pull ${{ steps.login-ecre.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
           
           # Stop and remove the old container if it exists
           sudo docker stop my-app-container || true
           sudo docker rm my-app-container || true
           
-          # Run the new container
-          sudo docker run -d -p 80:80 --name my-app-container ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+          # Run the new container with environment variables
+          sudo docker run -d -p 80:80 --name my-app-container \
+            -e REPO_NAME='${{ github.repository }}' \
+            -e COMMIT_SHA='${{ env.IMAGE_TAG }}' \
+            -e DEPLOY_TIME=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
